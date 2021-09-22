@@ -1,7 +1,7 @@
 import socket as s, sys
 import threading as t, json
 
-from config import info
+info = json.loads(open('serv_conf.json'))
 
 def thread(func):
 	def wrapper(*args, **kwargs):

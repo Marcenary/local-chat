@@ -1,7 +1,7 @@
 import socket as s, sys, json
 import threading as t
 
-from config import info
+info = json.loads(open('serv_conf.json')
 
 client = s.socket()
 client.connect( (info['addr'], info['port']) )
