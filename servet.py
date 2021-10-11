@@ -1,7 +1,7 @@
 import socket as s, sys
 import threading as t, json
 
-info = json.loads(open('serv_conf.json'))
+info = json.load(open('serv_conf.json'))
 
 def thread(func):
 	def wrapper(*args, **kwargs):
@@ -30,17 +30,19 @@ class Socket:
 	
 	def on_connect(self) -> None:
 		print('Server wait a connect..')
-		while 1:
-			client, addr = self.server.accept()
-			
-			client.send( b'%d'%self.ids ) # отсылает пользователю его идентификатор
-			
-			if client not in self.users:
-				self.users.append( [client, addr, self.ids] )
-				self.ids += 1
+		try:
+			while self.ids < 5:
+				client, addr = self.server.accept()
 				
-			print(f'{ addr } was connect')
-			self.on_message(client)
+				client.send( b'%d'%self.ids ) # отсылает пользователю его идентификатор
+				
+				if client not in self.users:
+					self.users.append( [client, addr, self.ids] )
+					self.ids += 1
+					
+				print(f'{ addr } was connect')
+				self.on_message(client)
+		except: print('Server close!')
 	
 	def disconnect_all(self):
 		try:
@@ -49,50 +51,51 @@ class Socket:
 					i[0].send(b'close')
 					i[0].close()
 		except Exception as e: print(repr(e))
-		sys.exit()
+		print('all disconnected')
 	
 	@thread
 	def on_message(self, client: s.socket) -> None:
 		usr = [ i if i[0] == client else None for i in self.users ][0]
 		while 1:
 			try:
-				data = client.recv(1024).decode()
-				#data = json.loads(data)
-				print(data)
+				data = client.recv(2048).decode()
+				input('debug') # для проверки кто отсылает запросы
+				data = json.loads(data)
 				
-				#if data['commands'] == ':callback':
-#					data['commands'] = ''
-#					data['message'] = '[ server ]' + data['message']
-#					client.send(data + '\n' + json.dumps(data).encode())
-#					
-#				elif data['commands'] == ':exit':
-#					print(f"{ usr[1] } was disconnect")
-#					
-#					client.send(json.dumps(data).encode())
-#					client.close()
-#					self.users.remove(usr)
-#					
-#					data['commands'] = ''
-#					data['message'] = data['name'] + ' was disconnect'
-#					
-#					for user in self.users:
-#						if user[0] != client:
-#							user[0].send(json.dumps(data).encode())
-#					return
-#					
-#				else:
-#					for user in self.users:
-#						if user[0] != client:
-#							user[0].send(data)
-#						# else: usr = user
-#					
-				data = data.decode()
-				print(f"{ usr[1] } `{ data }`")
+				print(f"{ data['id'] }_{ data['name'] } `{ data['message'] }`") # usr[1]
+				
+				if ':callback' in data['commands']:
+					data['commands'] = ''
+					data['message'] = '< server > ' + data['message']
+					client.send(json.dumps(data).encode())
+					continue
+					
+				elif ':exit' in data['commands']:
+					print(f"{ usr[1] } was disconnect")
+					
+					client.send(json.dumps(data).encode())
+					client.close()
+					self.users.remove(usr)
+					
+					data['commands'] = ''
+					data['message'] = data["name"] + ' was disconnect'
+					
+					for user in self.users:
+						if user[0] != client:
+							user[0].send(json.dumps(data).encode())
+					return
+					
+				else:
+					for user in self.users:
+						if user[0] != client:
+							user[0].send(json.dumps(data).encode())
+						# else: usr = user
+				
 			except Exception as e:
 				print(repr(e))
-				self.disconnect_all()
+				self.disconnect_all() # может не прикратить работу сервера
+				break
 	
 
 if __name__ == '__main__':
 	Socket(info).run()
-	sys.exit()

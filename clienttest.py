@@ -1,8 +1,8 @@
-import socket as s, sys, json
+import socket as s
+import sys, json
 import threading as t
 
-info = json.loads(open('serv_conf.json')
-
+info = json.load(open('serv_conf.json'))
 client = s.socket()
 client.connect( (info['addr'], info['port']) )
 client.setblocking(0)
@@ -19,20 +19,19 @@ def thread(func):
 			args=args,
 			kwargs=kwargs)
 		th.start()
-		th.join()
 	return wrapper
 
 @thread
 def message(client):
-	global quit, id
-	id = int(client.recv(1024).decode())
+	global quit
 	
 	while not quit:
 		try:
-# error
-			data = json.loads(client.recv(1024).decode())
+			data = client.recv(1024).decode()
+			
+			data = json.loads(data)
 			if data['commands'] == ':exit':
-				quit = False
+				quit = False #  возможна ошибка не выхода
 			else:
 				print(data['message'])
 		except: pass
@@ -40,31 +39,33 @@ def message(client):
 def run(client):
 		global quit
 		try:
-			name = input('Name: ')
+			user['name'] = input('Name: ')
+			user['id'] = int(client.recv(1024).decode())
 			
-			user['name'] = name
-			data = { 'id': user['id'], 'name': user['name'], 'message' : '', 'commands': '', 'system': '' }
+			user['system'] = ''
 			
 			message(client)
 			
 			while not quit:
-			   data['commands'] = ''
-			   mess = input()
-			   print(mess)
+			   user['commands'] = ''
+			   mess = input('> ')
 			   
 			   if mess.find(':') == 0:
-			   	data['commands'] = mess
-			   	mess = ''
+			   	if ':callback' in mess:
+			   		user['commands'] = mess.split(' ', 1)[0]
+			   		mess = mess.split(' ', 1)[1]
+			   	else:
+			   		user['commands'] = mess
+			   		if user['commands'] == ':exit':
+			   			quit = True
 			   
-			   data['message'] = mess
-			   data = json.dumps(data)
-			   print(data)
-			   #client.send(data)
-			   if data['commands'] == ':exit':
-			   	quit = False
+			   user['message'] = mess
+			   data = json.dumps(user).encode()
+			   client.send(data)
+			   print(user['message'])
 			   	
-		except: pass
+		except Exception as e: print('\n\n' + str(e) + '\n\n')
 		client.close()
+		return
 
 run(client)
-sys.exit()
